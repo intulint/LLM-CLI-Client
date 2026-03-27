@@ -1,5 +1,48 @@
-# llama.cpp-simple-api-client
-The repository contains a client script in Python for interacting with the LLM model via an HTTP API llama-server. The code allows sending user messages and receiving responses from the model using various API routes (e.g. `/completions` or `/v1/chat/completions`). Streaming data is also supported.
+LLM CLI Client (Educational Project)
 
-Used for testing, training and interaction with a local server llama.cpp.
-This is a simple implementation of a chat client, to understand how to work with the API and process messages.
+LLM CLI Client — это учебный проект, созданный для глубокого понимания принципов взаимодействия с API языковых моделей. Цель разработки заключалась в самостоятельном изучении механизмов стриминга токенов, вызова функций (Function Calling) и работы с Reasoning Content в формате OpenAI-like API, без использования готовых SDK для нейросетей.
+
+Цель проекта
+Данный проект был написан с целью самостоятельного изучения того, как именно работают вызовы к нейросетям на уровне HTTP-запросов. Основная задача — реализовать функционал чат-интерфейса, опираясь на базовые протоколы и стандартные библиотеки, чтобы понять внутреннюю логику работы LLM.
+
+Технические детали
+Язык: Python 3.8+
+Зависимости:
+requests (для HTTP-запросов)
+json (стандартная библиотека Python)
+Архитектура: Чистый Python без использования сторонних библиотек, связанных непосредственно с нейросетями (например, langchain, llama-index или официальных SDK OpenAI не использовались).
+API: Совместимость с OpenAI-like API (используется эндпоинт /chat/completions).
+Функциональные возможности
+Потоковая генерация (Streaming): Поддержка stream=True для вывода токенов по мере их генерации.
+Reasoning Content: Обработка и вывод скрытых «мыслей» модели, если сервер поддерживает поле reasoning_content.
+Function Calling (Tools): Реализация вызова внешних функций внутри диалога (на примере функции fetch для получения веб-страниц).
+CLI Интерфейс: Управляющая консоль с командами для управления историей чата.
+Команды CLI
+/q — Выход из программы
+/n — Новый чат (очистка истории)
+/d — Удалить последнее сообщение из истории
+/r — Регенерация последнего ответа ассистента
+Установка
+Проект зависит от библиотеки requests.
+
+bash
+
+pip install requests
+Использование
+Запустите скрипт из терминала:
+
+bash
+
+python main.py
+Убедитесь, что локальный сервер с нейросетью (например, Ollama, LM Studio) запущен и доступен по адресу http://localhost:8080 (или измените URL в коде).
+
+Архитектура кода
+chat_form: Список сообщений, хранящий историю диалога.
+generate_api_request: Основная логика отправки запросов к API, включающая обработку стриминга и ошибок.
+tool_message: Обработка результатов вызова инструментов и их добавление в контекст.
+fetch_tool: Функция для реализации инструмента fetch.
+Примечание
+Этот проект является учебным. Он демонстрирует базовый принцип работы с LLM API «из коробки», но не предназначен для продакшн-использования. В нем отсутствуют продвинутые функции безопасности, асинхронность и сложная модульная архитектура.
+
+Лицензия
+Данный проект распространяется под лицензией MIT.
