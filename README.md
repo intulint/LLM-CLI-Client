@@ -1,4 +1,9 @@
 LLM CLI Client (Educational Project)
+Image cannot be displayed
+(open link)
+
+Image cannot be displayed
+(open link)
 
 LLM CLI Client — это учебный проект, созданный для глубокого понимания принципов взаимодействия с API языковых моделей. Цель разработки заключалась в самостоятельном изучении механизмов стриминга токенов, вызова функций (Function Calling) и работы с Reasoning Content в формате OpenAI-like API, без использования готовых SDK для нейросетей.
 
