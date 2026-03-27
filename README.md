@@ -1,63 +1,63 @@
 # LLM CLI Client (Educational Project)
 
-LLM CLI Client — это учебный проект, созданный для глубокого понимания принципов взаимодействия с API языковых моделей. Цель разработки заключалась в самостоятельном изучении механизмов стриминга токенов, вызова функций (Function Calling) и работы с Reasoning Content в формате OpenAI-like API, без использования готовых SDK для нейросетей.
+LLM CLI Client is an educational project created to deeply understand the principles of interacting with Large Language Model (LLM) APIs. The development goal was to independently learn the mechanisms of token streaming, Function Calling, and Reasoning Content handling in the OpenAI-like API format, without using ready-made SDKs for neural networks.
 
-## Цель проекта
+## Project Goal
 
-Данный проект был написан с целью самостоятельного изучения того, как именно работают вызовы к нейросетям на уровне HTTP-запросов. Основная задача — реализовать функционал чат-интерфейса, опираясь на базовые протоколы и стандартные библиотеки, чтобы понять внутреннюю логику работы LLM.
+This project was written to independently learn how exactly calls to neural networks work at the HTTP request level. The main task is to implement a chat interface functionality, relying on basic protocols and standard libraries, to understand the internal logic of LLMs.
 
-## Технические детали
+## Technical Details
 
-- **Язык:** Python 3.8+
-- **Зависимости:**
-  - `requests` (для HTTP-запросов)
-  - `json` (стандартная библиотека Python)
-- **Архитектура:** Чистый Python без использования сторонних библиотек, связанных непосредственно с нейросетями (например, langchain, llama-index или официальных SDK OpenAI не использовались).
-- **API:** Совместимость с OpenAI-like API (используется эндпоинт `/chat/completions`).
+- **Language:** Python 3.8+
+- **Dependencies:**
+  - `requests` (for HTTP requests)
+  - `json` (Python standard library)
+- **Architecture:** Pure Python without using third-party libraries directly related to neural networks (e.g., langchain, llama-index, or official OpenAI SDKs were not used).
+- **API:** Compatibility with OpenAI-like API (uses the `/chat/completions` endpoint).
 
-## Функциональные возможности
+## Functional Features
 
-- **Потоковая генерация (Streaming):** Поддержка `stream=True` для вывода токенов по мере их генерации.
-- **Reasoning Content:** Обработка и вывод скрытых «мыслей» модели, если сервер поддерживает поле `reasoning_content`.
-- **Function Calling (Tools):** Реализация вызова внешних функций внутри диалога (на примере функции `fetch` для получения веб-страниц).
-- **CLI Интерфейс:** Управляющая консоль с командами для управления историей чата.
+- **Streaming:** Support for `stream=True` to output tokens as they are generated.
+- **Reasoning Content:** Processing and output of hidden "thoughts" from the model, if the server supports the `reasoning_content` field.
+- **Function Calling (Tools):** Implementation of external function calls within the conversation (using the `fetch` function as an example for retrieving web pages).
+- **CLI Interface:** A managing console with commands to control chat history.
 
-## Команды CLI
+## CLI Commands
 
-- `/q` — Выход из программы
-- `/n` — Новый чат (очистка истории)
-- `/d` — Удалить последнее сообщение из истории
-- `/r` — Регенерация последнего ответа ассистента
+- `/q` — Exit the program
+- `/n` — New chat (clear history)
+- `/d` — Delete the last message from history
+- `/r` — Regenerate the last assistant response
 
-## Установка
+## Installation
 
-Проект зависит от библиотеки `requests`.
+The project depends on the `requests` library.
 
 ```bash
 pip install requests
 ```
 
-## Использование
+## Usage
 
-Запустите скрипт из терминала:
+Run the script from the terminal:
 
 ```bash
 python main.py
 ```
 
-Убедитесь, что локальный сервер с нейросетью (например, Ollama, LM Studio) запущен и доступен по адресу `http://localhost:8080` (или измените URL в коде).
+Ensure that a local neural network server (e.g., Ollama, LM Studio) is running and accessible at `http://localhost:8080` (or change the URL in the code).
 
-## Архитектура кода
+## Code Architecture
 
-- `chat_form`: Список сообщений, хранящий историю диалога.
-- `generate_api_request`: Основная логика отправки запросов к API, включающая обработку стриминга и ошибок.
-- `tool_message`: Обработка результатов вызова инструментов и их добавление в контекст.
-- `fetch_tool`: Функция для реализации инструмента `fetch`.
+- `chat_form`: A list of messages storing the conversation history.
+- `generate_api_request`: Main logic for sending requests to the API, including streaming and error handling.
+- `tool_message`: Processing tool call results and adding them to the context.
+- `fetch_tool`: Function to implement the `fetch` tool.
 
-## Примечание
+## Note
 
-Этот проект является учебным. Он демонстрирует базовый принцип работы с LLM API «из коробки», но не предназначен для продакшн-использования. В нем отсутствуют продвинутые функции безопасности, асинхронность и сложная модульная архитектура.
+This project is educational. It demonstrates the basic principle of working with LLM APIs "out of the box", but is not intended for production use. It lacks advanced security features, asynchronous operations, and complex modular architecture.
 
-## Лицензия
+## License
 
-Данный проект распространяется под лицензией [The Unlicense](https://unlicense.org/).
+This project is distributed under the [The Unlicense](https://unlicense.org/) license.
