@@ -17,17 +17,22 @@ This project was written to independently learn how exactly calls to neural netw
 
 ## Functional Features
 
-- **Streaming:** Support for `stream=True` to output tokens as they are generated.
-- **Reasoning Content:** Processing and output of hidden "thoughts" from the model, if the server supports the `reasoning_content` field.
-- **Function Calling (Tools):** Implementation of external function calls within the conversation (using the `fetch` function as an example for retrieving web pages).
-- **CLI Interface:** A managing console with commands to control chat history.
+- **Streaming:** Support for `stream=True` to output tokens as they are generated in real-time.
+- **Reasoning Content:** Processing and output of hidden model reasoning (`reasoning_content`) with visual markers (`=========Thinking=========` / `=========End of Reasoning=========`).
+- **Function Calling (Tools):** Implementation of external function calls within the conversation. The example tool `fetch` downloads URL content into context.
+- **CLI Interface:** Console commands for managing chat history and session control.
+- **Temperature & Sampling Control:** Configurable `temperature` (0.6), `top_p` (0.95), and `top_k` (20) parameters.
+- **Max Tokens:** Configurable `max_tokens` limit (default 4000).
+- **HTTP Timeout:** Request timeout protection (120 seconds for chat, 30 seconds for tool fetch).
 
 ## CLI Commands
 
-- `/q` — Exit the program
-- `/n` — New chat (clear history)
-- `/d` — Delete the last message from history
-- `/r` — Regenerate the last assistant response
+| Command | Description |
+|---------|-------------|
+| `/q` | Exit the program |
+| `/n` | New chat session (clears conversation history) |
+| `/d` | Delete the last assistant response from history |
+| `/r` | Regenerate the last assistant response |
 
 ## Installation
 
@@ -49,14 +54,20 @@ Ensure that a local neural network server (e.g., Ollama, LM Studio) is running a
 
 ## Code Architecture
 
-- `chat_form`: A list of messages storing the conversation history.
-- `generate_api_request`: Main logic for sending requests to the API, including streaming and error handling.
-- `tool_message`: Processing tool call results and adding them to the context.
-- `fetch_tool`: Function to implement the `fetch` tool.
+- `chat_form`: Message history list storing system prompt, assistant first message, and conversation turns.
+- `generate_api_request`: Core request generator supporting both streaming and non-streaming modes with reasoning_content and tool_calls handling.
+- `tool_message`: Processes tool call results and recursively generates follow-up responses.
+- `fetch_tool`: Tool implementation for downloading URL content with error handling.
+- `model_api_request`: Fetches available models from the server.
+- `message_print`: Helper function for displaying chat messages.
 
-## Note
+## Notes
 
-This project is educational. It demonstrates the basic principle of working with LLM APIs "out of the box", but is not intended for production use. It lacks advanced security features, asynchronous operations, and complex modular architecture.
+- The client expects an OpenAI-compatible API endpoint at `/chat/completions`.
+- Tool calling uses the standard OpenAI `tool_calls` format with function definitions.
+- Reasoning content is displayed inline with visual separators when enabled (`Print_thinking = True`).
+- The fetch tool returns plain text content or error messages if the request fails.
+- This project is educational and demonstrates core LLM API interaction principles without relying on high-level SDKs.
 
 ## License
 
