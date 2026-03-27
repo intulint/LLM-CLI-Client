@@ -52,7 +52,6 @@ tools = [
 ]
 
 Stream = True  # Потоковая генерация токенов
-Thinking = None  # режим размышлений
 Print_thinking = True  # отображать размышления
 
 # Запрос на генерацию чата, который включает модель, форму чата и температуру
@@ -90,8 +89,7 @@ def generate_api_request():
                 server_url + "/chat/completions",
                 headers=headers,
                 json=chat_request,
-                stream=Stream,
-                timeout=120,  # Добавлен таймаут для безопасности
+                stream=Stream
             )
             response.raise_for_status()  # Проверка на ошибки HTTP
         except requests.exceptions.RequestException as e:
@@ -126,7 +124,7 @@ def generate_api_request():
                             reasoning = delta.get("reasoning_content")
                             if not is_reasoning:
                                 is_reasoning = True
-                                print(f"=========Thinking=========")
+                                print("=========Thinking=========")
                             print(reasoning, end="")
 
                         # 2. Обработка основного ответа (content)
@@ -135,9 +133,7 @@ def generate_api_request():
                             # Логика переключения: если было мышление, теперь конец мышления
                             if is_reasoning and not is_content:
                                 is_content = True
-                                print(
-                                    f"=========End of Reasoning========="
-                                )  # Исправлено: корректный заголовок
+                                print("=========Thinking=========\n")  # Исправлено: корректный заголовок
 
                             chunks += content
                             print(content, end="")
@@ -179,7 +175,9 @@ def generate_api_request():
     else:
         try:
             response = requests.post(
-                server_url + "/v1/chat/completions", headers=headers, json=chat_request
+                server_url + "/v1/chat/completions",
+                headers=headers,
+                json=chat_request
             )
             response.raise_for_status()
             message = response.json()["choices"][0]["message"]
@@ -187,9 +185,9 @@ def generate_api_request():
             # 1. Обработка reasoning_content в обычном режиме
             if Print_thinking and message.get("reasoning_content"):
                 reasoning = message["reasoning_content"]
-                print(f"=========Thinking=========")
+                print("=========Thinking=========")
                 print(reasoning)
-                print(f"=========End of Reasoning=========\n")
+                print("=========Thinking=========\n")
 
             # 2. Обработка tool_calls
             if "tool_calls" in message and message["tool_calls"]:
@@ -208,6 +206,7 @@ def generate_api_request():
         except Exception as e:
             print(f"Ошибка при обработке нестриминг ответа: {e}")
 
+
 def tool_message(tool_result):
     # {'function': {'name': 'fetch', 'arguments': '{'}}
     print("\n=== Tool use ===")
@@ -225,7 +224,6 @@ def tool_message(tool_result):
         # Вызываем функцию fetch_tool с полученным URL
         tool_response["content"] = fetch_tool(url)
 
-    # print(tool_response ["role"] + ": " + tool_response ["content"])
     # Добавляем результат инструмента в историю
     chat_form.append(tool_response)
     generate_api_request()
@@ -233,10 +231,10 @@ def tool_message(tool_result):
 
 # Функция для печати сообщений чата
 def message_print(messages):
+    print("Содержание чата:")
     # Проходимся по каждому сообщению в чате и выводим его на экран
     for message in messages:
         print(message["role"] + ": " + message["content"])
-
 
 # Основная функция программы
 def main():
@@ -263,10 +261,13 @@ def main():
 
         if user_input == "/d":
             if len(chat_form) > 2:
-                chat_form.pop()
-                chat_form.pop()
-                print("Удалено")
-                message_print(chat_form)
+                # Ищем с конца, находим последний элемент с role == "user"
+                for i in reversed(range(len(chat_form))):
+                    if chat_form[i].get("role") == "user":
+                        # Возвращаем список до найденного элемента (не включая его)
+                        del chat_form[i:]
+                        message_print(chat_form)
+                        break
             else:
                 print("Удалять нечего")
             continue
@@ -280,10 +281,14 @@ def main():
             continue
 
         if user_input == "/r":
-            chat_form.pop()
             print("Регенерация сообщения.")
-            user_input = chat_form.pop()["content"]
-
+            for i in reversed(range(len(chat_form))):
+                    if chat_form[i].get("role") == "user":
+                        # Возвращаем список до найденного элемента (не включая его)
+                        user_input = chat_form[i].get("content")
+                        del chat_form[i:]
+                        break
+                    
         # Добавляем в форму чата сообщение пользователя
         chat_form.append({"role": "user", "content": user_input})
 

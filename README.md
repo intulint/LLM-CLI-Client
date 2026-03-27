@@ -23,7 +23,7 @@ This project was written to independently learn how exactly calls to neural netw
 - **CLI Interface:** Console commands for managing chat history and session control.
 - **Temperature & Sampling Control:** Configurable `temperature` (0.6), `top_p` (0.95), and `top_k` (20) parameters.
 - **Max Tokens:** Configurable `max_tokens` limit (default 4000).
-- **HTTP Timeout:** Request timeout protection (120 seconds for chat, 30 seconds for tool fetch).
+- **HTTP Timeout:** Request timeout protection (30 seconds for tool fetch).
 
 ## CLI Commands
 
