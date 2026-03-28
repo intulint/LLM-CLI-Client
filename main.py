@@ -19,20 +19,8 @@ server_url = "http://localhost:8080"
 # Заголовки для HTTP-запросов, включая токен авторизации (в данном случае - 'no-key')
 headers = {"Content-Type": "application/json", "Authorization": "Bearer no-key"}
 
-
-def fetch_tool(url):
-    # Функция для получения содержимого по URL
-    try:
-        # Отправляем GET-запрос с таймаутом 30 секунд
-        resp = requests.get(url, timeout=30)
-        # Вызываем исключение, если статус ответа не 2xx
-        resp.raise_for_status()
-        content = resp.text
-        return content
-    except Exception:
-        # Возвращаем сообщение об ошибке при неудаче
-        return "Failed to read the response."
-
+Stream = True  # Потоковая генерация токенов
+Print_thinking = True  # отображать размышления
 
 tools = [
     {
@@ -51,9 +39,6 @@ tools = [
     }
 ]
 
-Stream = True  # Потоковая генерация токенов
-Print_thinking = True  # отображать размышления
-
 # Запрос на генерацию чата, который включает модель, форму чата и температуру
 chat_request = {
     "max_tokens": 4000,
@@ -67,6 +52,36 @@ chat_request = {
 }
 
 
+def fetch_tool(url):
+    try:
+        resp = requests.get(url, timeout=30)
+        resp.raise_for_status()
+        return resp.text
+    except Exception as e:
+        # Возвращаем четкую структуру ошибки
+        return f"ERROR: {type(e).__name__}: {str(e)}" 
+
+
+def tool_message(tool_result):
+    # {'name': 'fetch', 'arguments': '{'}
+    print("\n=== Tool use ===")
+    print("Tool name:", tool_result.get("name"))
+    print("Arguments:", tool_result.get("arguments"))
+
+    tool_name = tool_result["name"]
+    # Парсим аргументы как JSON
+    tool_arguments = json.loads(tool_result.get("arguments"))
+
+    # Создаем ответ для инструмента
+    tool_response = {"role": "tool", "content": ""}
+    if tool_name == "fetch":
+        url = tool_arguments.get("url")
+        # Вызываем функцию fetch_tool с полученным URL
+        tool_response["content"] = fetch_tool(url).strip()
+
+    generate_api_request(tool_response)
+
+
 # Функция для запроса списка моделей на сервере
 def model_api_request():
     # Отправляем GET-запрос на сервер
@@ -76,25 +91,29 @@ def model_api_request():
 
 
 # Функция для генерации ответа на запрос пользователя
-def generate_api_request():
+def generate_api_request(message_input):
     """
     Генерирует запрос к API. Поддерживает режим стриминга и обычный запрос.
     Обработка reasoning_content и tool_calls сохранена.
     """
-
+    # Добавляем в форму чата сообщение
+    chat_form.append(message_input)
+    print(message_input)
     # --- ЛОГИКА СТРИМИНГА ---
+    
+    try:
+        response = requests.post(
+            server_url + "/v1/chat/completions",
+            headers=headers,
+            json=chat_request,
+            stream=Stream
+        )
+        response.raise_for_status()  # Проверка на ошибки HTTP
+    except requests.exceptions.RequestException as e:
+        print(f"Ошибка при создании запроса: {e}")
+        return
+    
     if Stream:
-        try:
-            response = requests.post(
-                server_url + "/chat/completions",
-                headers=headers,
-                json=chat_request,
-                stream=Stream
-            )
-            response.raise_for_status()  # Проверка на ошибки HTTP
-        except requests.exceptions.RequestException as e:
-            print(f"Ошибка при создании запроса: {e}")
-            return
 
         chunks = ""
         tool_name = ""
@@ -108,17 +127,14 @@ def generate_api_request():
                 continue
             try:
                 line_str = line.decode("utf-8")
-
                 if line_str.startswith("data: "):
                     data = line_str[6:]  # Убираем префикс "data: "
-
                     if data == "[DONE]":
                         break
-
                     try:
                         chunk = json.loads(data)
                         delta = chunk.get("choices", [{}])[0].get("delta", {})
-
+                        # print(delta)
                         # 1. Обработка размышлений (reasoning_content)
                         if Print_thinking and delta.get("reasoning_content"):
                             reasoning = delta.get("reasoning_content")
@@ -140,12 +156,13 @@ def generate_api_request():
 
                         # 3. Обработка вызовов инструментов (tool_calls)
                         if delta.get("tool_calls"):
+                            # print(delta.get("tool_calls"))
                             is_tool = True
-                            tool_def = delta["tool_calls"][0]["function"]
+                            tool_def = delta["tool_calls"][0].get("function")
                             if tool_def.get("name"):
-                                tool_name = tool_def["name"]
+                                tool_name = tool_def.get("name")
                             if tool_def.get("arguments"):
-                                tool_arguments += tool_def["arguments"]
+                                tool_arguments += tool_def.get("arguments")
 
                     except json.JSONDecodeError as e:
                         print(f"Ошибка при парсинге JSON чанка: {e}, данные: {data}")
@@ -158,83 +175,54 @@ def generate_api_request():
         # Обработка итогов
         if is_tool:
             is_tool = False
-            tool_requests = {
-                "function": {"name": tool_name, "arguments": tool_arguments}
-            }
-            print(tool_requests["function"])
+            tool_requests = {"function": {"name": tool_name, "arguments": tool_arguments}}
+            # print(tool_requests["function"])
             if callable(tool_message):
-                tool_message(tool_requests)
+                tool_message(tool_requests.get("function"))
             else:
                 print(f"Функция tool_message не найдена или не вызываема")
 
         print()  # Перенос строки после завершения
+        
         # Сохраняем только контент в чат-формат
-        chat_form.append({"role": "assistant", "content": chunks})
+        chat_form.append({"role": "assistant", "content": chunks.strip()})
 
     # --- ЛОГИКА ОБЫЧНОГО ЗАПРОСА ---
     else:
         try:
-            response = requests.post(
-                server_url + "/v1/chat/completions",
-                headers=headers,
-                json=chat_request
-            )
-            response.raise_for_status()
-            message = response.json()["choices"][0]["message"]
+            message = response.json()["choices"][0].get("message")
 
             # 1. Обработка reasoning_content в обычном режиме
             if Print_thinking and message.get("reasoning_content"):
-                reasoning = message["reasoning_content"]
+                text = message.get("reasoning_content").strip()
                 print("=========Thinking=========")
-                print(reasoning)
+                print(text)
                 print("=========Thinking=========\n")
 
-            # 2. Обработка tool_calls
-            if "tool_calls" in message and message["tool_calls"]:
-                print(message["tool_calls"][0]["function"])
+            # 2. Вывод контента
+            if message.get("content"):
+                text = message.get("content").strip()
+                print(message["role"] + ": " + text)
+                chat_form.append({"role": "assistant", "content": text}) 
+
+            # 3. Обработка tool_calls
+            if message.get("tool_calls"):
+                text = message["tool_calls"][0].get("function")
+                print(text)
                 if callable(tool_message):
-                    tool_message(message["tool_calls"][0])
+                    tool_message(text)
                 else:
                     print("Ошибка: tool_message не является вызываемым объектом")
 
-            # 3. Вывод контента
-            if message.get("content"):
-                print(message["role"] + ": " + message["content"])
-
-            chat_form.append(message)
-
         except Exception as e:
             print(f"Ошибка при обработке нестриминг ответа: {e}")
-
-
-def tool_message(tool_result):
-    # {'function': {'name': 'fetch', 'arguments': '{'}}
-    print("\n=== Tool use ===")
-    print("Tool name:", tool_result["function"]["name"])
-    print("Arguments:", tool_result["function"]["arguments"])
-
-    tool_name = tool_result["function"]["name"]
-    # Парсим аргументы как JSON
-    tool_arguments = json.loads(tool_result["function"]["arguments"])
-
-    # Создаем ответ для инструмента
-    tool_response = {"role": "tool", "content": ""}
-    if tool_name == "fetch":
-        url = tool_arguments.get("url")
-        # Вызываем функцию fetch_tool с полученным URL
-        tool_response["content"] = fetch_tool(url)
-
-    # Добавляем результат инструмента в историю
-    chat_form.append(tool_response)
-    generate_api_request()
-
 
 # Функция для печати сообщений чата
 def message_print(messages):
     print("Содержание чата:")
     # Проходимся по каждому сообщению в чате и выводим его на экран
     for message in messages:
-        print(message["role"] + ": " + message["content"])
+        print(message.get("role") + ": " + message.get("content"))
 
 # Основная функция программы
 def main():
@@ -243,57 +231,101 @@ def main():
     # Выводим сообщение об команде окончании работы программы
     print("""
             Команды:
-            Выход       = /q 
-            Удаление    = /d
-            Регенерация = /r
-            Новый чат   = /n""")
+            Выход                           > /q 
+            Удаление сообщения              > /d
+            Регенерация сообщения           > /r
+            Новый чат                       > /n
+            Стриминг переключение           > /s
+            Отображение мыслей переключение > /t
+            Вывести текущий контекст        > /p """)
     print()
     # Печатаем начальные сообщения чата
     message_print(chat_form)
     # Запускаем бесконечный цикл для обработки запросов пользователя
     while True:
         # Запрашиваем ввод пользователя
-        user_input = input("> ")
+        user_input = input("> ").strip()
+
         # Если пользователь ввел 'q', завершаем программу
         if user_input == "/q":
             print("Выход.")
             break
+        
+        if user_input == "/p":
+            message_print(chat_form)
+            continue
+
+        if user_input == "/s":
+            global Stream
+            if Stream:
+                Stream = False
+                chat_request["stream"] = Stream
+                print("stream off")
+            else:
+                Stream = True
+                chat_request["stream"] = Stream
+                print("stream on")
+            continue
+
+        if user_input == "/t":
+            global Print_thinking
+            if Print_thinking:
+                Print_thinking = False
+                print("print thinking off")
+            else:
+                Print_thinking = True
+                print("print thinking on")
+            continue
 
         if user_input == "/d":
-            if len(chat_form) > 2:
-                # Ищем с конца, находим последний элемент с role == "user"
-                for i in reversed(range(len(chat_form))):
-                    if chat_form[i].get("role") == "user":
-                        # Возвращаем список до найденного элемента (не включая его)
-                        del chat_form[i:]
-                        message_print(chat_form)
-                        break
+            found_user = False
+            # Ищем с конца, находим последний элемент с role == "user"
+            for i in reversed(range(len(chat_form))):
+                if chat_form[i].get("role") == "user":
+                    del chat_form[i:]
+                    found_user = True
+                    break
+            
+            if found_user:
+                print("Последнее сообщение удалено")
+                message_print(chat_form)
             else:
                 print("Удалять нечего")
             continue
 
         if user_input == "/n":
-            print("Новая сессия.")
-            chat_form.clear()
-            chat_form.append({"role": "system", "content": system_prompt})
-            chat_form.append({"role": "assistant", "content": first_message})
-            message_print(chat_form)
+            found_user = False
+            # Ищем с начала, находим первый элемент с role == "user"
+            for i in range(len(chat_form)):
+                if chat_form[i].get("role") == "user":
+                    del chat_form[i:]
+                    found_user = True
+                    break   
+            if found_user:
+                print("Новая сессия.")
+                message_print(chat_form)
+            else:
+                print("Новая сессия уже начата.")
             continue
 
         if user_input == "/r":
-            print("Регенерация сообщения.")
+            found_user = False
             for i in reversed(range(len(chat_form))):
-                    if chat_form[i].get("role") == "user":
-                        # Возвращаем список до найденного элемента (не включая его)
-                        user_input = chat_form[i].get("content")
-                        del chat_form[i:]
-                        break
-                    
-        # Добавляем в форму чата сообщение пользователя
-        chat_form.append({"role": "user", "content": user_input})
+                if chat_form[i].get("role") == "user":
+                    same_text = chat_form[i].get("content")
+                    del chat_form[i:]
+                    found_user = True
+                    break
+            if found_user:
+                print("Регенерация сообщения.")
+                generate_api_request({"role": "user", "content": same_text})
+                continue
+            else:
+                print("Нечего регенерировать, это новая сессия.")
+                continue 
 
         # Генерируем ответ на запрос пользователя
-        generate_api_request()
+        generate_api_request({"role": "user", "content": user_input})
 
 
 # Если модуль запущен как основной, вызываем функцию main()
