@@ -1,10 +1,10 @@
 # LLM CLI Client (Educational Project)
 
-LLM CLI Client is an educational project created to deeply understand the principles of interacting with Large Language Model (LLM) APIs. The development goal was to independently learn the mechanisms of token streaming, Function Calling, and Reasoning Content handling in the OpenAI-like API format, without using ready-made SDKs for neural networks.
+LLM CLI Client is an educational project created to deeply understand the principles of interacting with Large Language Model (LLM) APIs. The development goal was to independently learn the mechanisms of token streaming, Function Calling, and Reasoning Content handling in the OpenAI-like API format, without using ready-made SDKs for LLM.
 
 ## Project Goal
 
-This project was written to independently learn how exactly calls to neural networks work at the HTTP request level. The main task is to implement a chat interface functionality, relying on basic protocols and standard libraries, to understand the internal logic of LLMs.
+This project was written to independently learn how exactly calls to LLM work at the HTTP request level. The main task is to implement a chat interface functionality, relying on basic protocols and standard libraries, to understand the internal logic of LLMs.
 
 ## Technical Details
 
@@ -53,7 +53,7 @@ Run the script from the terminal:
 python main.py
 ```
 
-Ensure that a local neural network server (e.g., Ollama, LM Studio) is running and accessible at `http://localhost:8080` (or change the URL in the code).
+Ensure that a local LLM server (e.g., llama.cpp, Ollama, LM Studio) is running and accessible at `http://localhost:8080` (or change the URL in the code).
 
 ## Code Architecture
 
