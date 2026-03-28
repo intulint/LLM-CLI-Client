@@ -63,7 +63,7 @@ Ensure that a local neural network server (e.g., Ollama, LM Studio) is running a
 
 ## Notes
 
-- The client expects an OpenAI-compatible API endpoint at `/chat/completions`.
+- The client expects an OpenAI-compatible API endpoint at `/v1/chat/completions`.
 - Tool calling uses the standard OpenAI `tool_calls` format with function definitions.
 - Reasoning content is displayed inline with visual separators when enabled (`Print_thinking = True`).
 - The fetch tool returns plain text content or error messages if the request fails.
