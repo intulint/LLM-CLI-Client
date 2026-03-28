@@ -191,8 +191,6 @@ When API keys are configured, requests must include:
 
 This API documentation was extracted from the following source files in the llama.cpp repository:
 
-**Local Path**: `/home/admen/llamacpp/llama.cpp`
-
 | Source File | Description |
 |-------------|-------------|
 | `./tools/server/server.cpp` | Main server file with registered HTTP endpoints |
