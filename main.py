@@ -85,7 +85,7 @@ def tool_message(tool_result):
 # Функция для запроса списка моделей на сервере
 def model_api_request():
     # Отправляем GET-запрос на сервер
-    response = requests.get(server_url + "/models")
+    response = requests.get(server_url + "/v1/models")
     # Выводим ID первой модели, которая вернулась от сервера
     print("Модель: " + response.json()["data"][0]["id"])
 
@@ -149,7 +149,7 @@ def generate_api_request(message_input):
                             # Логика переключения: если было мышление, теперь конец мышления
                             if is_reasoning and not is_content:
                                 is_content = True
-                                print("=========Thinking=========\n")  # Исправлено: корректный заголовок
+                                print("\n=========Thinking=========\n")  # Исправлено: корректный заголовок
 
                             chunks += content
                             print(content, end="")
