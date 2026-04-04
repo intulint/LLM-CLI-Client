@@ -29,6 +29,7 @@ This project was written to independently learn how exactly calls to LLM work at
 
 | Command | Description |
 |---------|-------------|
+| `/h` | Show help (list of commands) |
 | `/q` | Exit the program |
 | `/n` | New chat session (clears conversation history) |
 | `/d` | Delete the last user message and assistant response from history |
@@ -70,6 +71,7 @@ Ensure that a local LLM server (e.g., llama.cpp, Ollama, LM Studio) is running a
 - **Stream:** Toggle streaming mode with `/s` command (default: `True`).
 - **Print_thinking:** Toggle reasoning content display with `/t` command (default: `True`).
 - **server_url:** Configure server address (default: `http://localhost:8080`).
+- **Authorization:** API authorization header (default: `Bearer no-key`).
 - **tools:** Tool definitions for function calling (default: `fetch` tool).
 
 ## Notes
