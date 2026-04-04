@@ -391,7 +391,7 @@ def main():
 
         # Генерируем ответ на запрос пользователя
         global current_tool_calls
-        curent_tool_calls = 0
+        current_tool_calls = 0
         generate_api_request({"role": "user", "content": user_input})
 
 
