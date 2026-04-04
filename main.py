@@ -103,7 +103,12 @@ def tool_message(tool_call_object):
     global current_tool_calls
     current_tool_calls+=1
     if current_tool_calls == 1:
-        tool_response["content"] += f"\n[Notice: You are allowed a maximum of {MAX_TOOL_CALLS} consecutive tool calls in total, across all tools for this request. Plan your usage efficiently and provide a final answer when the limit is reached.]"
+        tool_response["content"] += (
+        f"\n[SYSTEM NOTICE: Tool limit for THIS TURN ONLY] "
+        f"You may make up to {MAX_TOOL_CALLS} tool calls in a row before responding to the user. "
+        f"This counter applies ONLY to the current request and RESETS to 0 when the user sends a new message. "
+        f"REQUIRED ACTION: After {MAX_TOOL_CALLS} consecutive tool calls, you MUST stop calling tools and provide a final text answer."
+    )
     elif current_tool_calls == MAX_TOOL_CALLS - 1:
         tool_response["content"] += "\n[Notice: One more tool call allowed. Make it count and then provide a final answer.]"
     elif current_tool_calls > MAX_TOOL_CALLS:
@@ -301,6 +306,12 @@ def main():
     message_print(chat_form)
     # Запускаем бесконечный цикл для обработки запросов пользователя
     while True:
+        # Вывод количества вызовов инструментов и сброс до 0
+        global current_tool_calls
+        if current_tool_calls > 0:
+          print(f"\n# Вызовы инструментов = {current_tool_calls}")  
+          current_tool_calls = 0
+
         # Запрашиваем ввод пользователя
         user_input = input("\n> ").strip()
 
@@ -390,8 +401,6 @@ def main():
                 continue 
 
         # Генерируем ответ на запрос пользователя
-        global current_tool_calls
-        current_tool_calls = 0
         generate_api_request({"role": "user", "content": user_input})
 
 
