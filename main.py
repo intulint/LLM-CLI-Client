@@ -21,6 +21,8 @@ headers = {"Content-Type": "application/json", "Authorization": "Bearer no-key"}
 
 Stream = True  # Потоковая генерация токенов
 Print_thinking = True  # отображать размышления
+MAX_TOOL_CALLS = 5
+current_tool_calls = 0
 
 tools = [
     {
@@ -66,7 +68,19 @@ def tool_message(tool_call_object):
     # tool_call_object — это элемент из массива assistant_tool_calls
     call_id = tool_call_object["id"]
     name = tool_call_object["function"]["name"]
-    args = json.loads(tool_call_object["function"]["arguments"])
+
+    try:
+        args = json.loads(tool_call_object["function"]["arguments"])
+    except json.JSONDecodeError as e:
+        # Отправляем валидный tool-ответ с ошибкой парсинга
+        error_response = {
+            "role": "tool",
+            "tool_call_id": call_id,
+            "content": f"ERROR: Failed to parse arguments: {e}"
+        }
+        chat_form.append(error_response)
+        generate_api_request(None)
+        return  # Выходим, не выполняем логику
 
     print("\n=== Tool use ===")
     print(f"Tool name: {name}")
@@ -80,16 +94,23 @@ def tool_message(tool_call_object):
     else:
         result = f"ERROR: Unknown tool {name}"
 
-    # Создаем ответ, который СТРОГО привязан к ID
     tool_response = {
-        "role": "tool",
-        "tool_call_id": call_id,
-        "content": result
-    }
+            "role": "tool",
+            "tool_call_id": call_id,
+            "content": result
+        }
     
-    # Добавляем в историю и идем на следующий круг
+    global current_tool_calls
+    current_tool_calls+=1
+    if current_tool_calls == 1:
+        tool_response["content"] += f"\n[Notice: You are allowed a maximum of {MAX_TOOL_CALLS} consecutive tool calls in total, across all tools for this request. Plan your usage efficiently and provide a final answer when the limit is reached.]"
+    elif current_tool_calls == MAX_TOOL_CALLS - 1:
+        tool_response["content"] += "\n[Notice: One more tool call allowed. Make it count and then provide a final answer.]"
+    elif current_tool_calls > MAX_TOOL_CALLS:
+        tool_response["content"] = "ERROR: Tool execution limit reached. Do not use any more tools. Provide a final answer to the user based on available information."
+
     chat_form.append(tool_response)
-    generate_api_request(None) # Передаем None, так как сообщение уже в истории
+    generate_api_request(None)
 
 
 # Функция для запроса списка моделей на сервере
@@ -109,7 +130,7 @@ def generate_api_request(message_input):
     # Добавляем в форму чата сообщение
     if message_input is not None:
         chat_form.append(message_input)
-        print(message_input)
+        # print(message_input)
         
     # --- ЛОГИКА СТРИМИНГА ---
     
@@ -253,7 +274,11 @@ def message_print(messages):
     print("Содержание чата:")
     # Проходимся по каждому сообщению в чате и выводим его на экран
     for message in messages:
-        print(message.get("role") + ": " + message.get("content"))
+        print(message.get("role") + ": ", end='')
+        if message.get("content"):
+            print(message.get("content"))
+        if message.get("tool_calls"):
+            print(message.get("tool_calls"))
 
 # Основная функция программы
 def main():
@@ -278,6 +303,9 @@ def main():
     while True:
         # Запрашиваем ввод пользователя
         user_input = input("\n> ").strip()
+
+        if not user_input:
+            continue  # Пропустить пустой ввод
 
         # Если пользователь ввел 'q', завершаем программу
         if user_input == "/q":
@@ -362,6 +390,8 @@ def main():
                 continue 
 
         # Генерируем ответ на запрос пользователя
+        global current_tool_calls
+        curent_tool_calls = 0
         generate_api_request({"role": "user", "content": user_input})
 
 
