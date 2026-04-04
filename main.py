@@ -62,24 +62,34 @@ def fetch_tool(url):
         return f"ERROR: {type(e).__name__}: {str(e)}" 
 
 
-def tool_message(tool_result):
-    # {'name': 'fetch', 'arguments': '{'}
+def tool_message(tool_call_object):
+    # tool_call_object — это элемент из массива assistant_tool_calls
+    call_id = tool_call_object["id"]
+    name = tool_call_object["function"]["name"]
+    args = json.loads(tool_call_object["function"]["arguments"])
+
     print("\n=== Tool use ===")
-    print("Tool name:", tool_result.get("name"))
-    print("Arguments:", tool_result.get("arguments"))
+    print(f"Tool name: {name}")
+    print(f"Arguments: {args}")
 
-    tool_name = tool_result["name"]
-    # Парсим аргументы как JSON
-    tool_arguments = json.loads(tool_result.get("arguments"))
+    
+    # Выполняем логику
+    result = ""
+    if name == "fetch":
+        result = fetch_tool(args.get('url', ''))
+    else:
+        result = f"ERROR: Unknown tool {name}"
 
-    # Создаем ответ для инструмента
-    tool_response = {"role": "tool", "content": ""}
-    if tool_name == "fetch":
-        url = tool_arguments.get("url")
-        # Вызываем функцию fetch_tool с полученным URL
-        tool_response["content"] = fetch_tool(url).strip()
-
-    generate_api_request(tool_response)
+    # Создаем ответ, который СТРОГО привязан к ID
+    tool_response = {
+        "role": "tool",
+        "tool_call_id": call_id,
+        "content": result
+    }
+    
+    # Добавляем в историю и идем на следующий круг
+    chat_form.append(tool_response)
+    generate_api_request(None) # Передаем None, так как сообщение уже в истории
 
 
 # Функция для запроса списка моделей на сервере
@@ -97,8 +107,10 @@ def generate_api_request(message_input):
     Обработка reasoning_content и tool_calls сохранена.
     """
     # Добавляем в форму чата сообщение
-    chat_form.append(message_input)
-    print(message_input)
+    if message_input is not None:
+        chat_form.append(message_input)
+        print(message_input)
+        
     # --- ЛОГИКА СТРИМИНГА ---
     
     try:
@@ -116,9 +128,7 @@ def generate_api_request(message_input):
     if Stream:
 
         chunks = ""
-        tool_name = ""
-        tool_arguments = ""
-        is_tool = False
+        current_tool_calls = []
         is_reasoning = False
         is_content = False
 
@@ -156,13 +166,22 @@ def generate_api_request(message_input):
 
                         # 3. Обработка вызовов инструментов (tool_calls)
                         if delta.get("tool_calls"):
-                            # print(delta.get("tool_calls"))
-                            is_tool = True
-                            tool_def = delta["tool_calls"][0].get("function")
-                            if tool_def.get("name"):
-                                tool_name = tool_def.get("name")
-                            if tool_def.get("arguments"):
-                                tool_arguments += tool_def.get("arguments")
+                            for tc_delta in delta.get("tool_calls"):
+                            # 1. Если пришел ID, значит это начало нового вызова в массиве
+                                if "id" in tc_delta:
+                                    current_tool_calls.append({
+                                        "id": tc_delta["id"],
+                                        "name": "",
+                                        "arguments": ""
+                                    })
+    
+                                # 2. Дописываем аргументы и имя к последнему вызову в списке
+                                if current_tool_calls:
+                                    last_call = current_tool_calls[-1]
+                                    if "function" in tc_delta:
+                                        f = tc_delta["function"]
+                                        if "name" in f: last_call["name"] = f["name"]
+                                        if "arguments" in f: last_call["arguments"] += f["arguments"]
 
                     except json.JSONDecodeError as e:
                         print(f"Ошибка при парсинге JSON чанка: {e}, данные: {data}")
@@ -172,25 +191,34 @@ def generate_api_request(message_input):
             except Exception as e:
                 print(f"Ошибка декодирования строки: {e}")
 
-        # Обработка итогов
-        if is_tool:
-            is_tool = False
-            tool_requests = {"function": {"name": tool_name, "arguments": tool_arguments}}
-            # print(tool_requests["function"])
-            if callable(tool_message):
-                tool_message(tool_requests.get("function"))
-            else:
-                print(f"Функция tool_message не найдена или не вызываема")
+        if current_tool_calls:
+            # Формируем массив tool_calls для истории
+            assistant_tool_calls = []
+            for tc in current_tool_calls:
+                assistant_tool_calls.append({
+                    "id": tc["id"],
+                    "type": "function",
+                    "function": {
+                        "name": tc["name"],
+                        "arguments": tc["arguments"]
+                    }
+                })
+            
+            # Добавляем в историю именно так!
+            chat_form.append({"role": "assistant","tool_calls": assistant_tool_calls})
+    
+            # Теперь запускаем выполнение инструментов
+            for tc in assistant_tool_calls:
+                tool_message(tc) # Передаем весь объект вызова
+        else:
+            # Если вызовов не было, добавляем обычный текст
+            chat_form.append({"role": "assistant", "content": chunks.strip()})
 
-        print()  # Перенос строки после завершения
-        
-        # Сохраняем только контент в чат-формат
-        chat_form.append({"role": "assistant", "content": chunks.strip()})
 
     # --- ЛОГИКА ОБЫЧНОГО ЗАПРОСА ---
     else:
         try:
-            message = response.json()["choices"][0].get("message")
+            message = response.json()["choices"][0].get("message", {})
 
             # 1. Обработка reasoning_content в обычном режиме
             if Print_thinking and message.get("reasoning_content"):
@@ -199,20 +227,23 @@ def generate_api_request(message_input):
                 print(text)
                 print("=========Thinking=========\n")
 
-            # 2. Вывод контента
-            if message.get("content"):
-                text = message.get("content").strip()
-                print(message["role"] + ": " + text)
-                chat_form.append({"role": "assistant", "content": text}) 
-
-            # 3. Обработка tool_calls
+            # 2. Обработка tool_calls 
             if message.get("tool_calls"):
-                text = message["tool_calls"][0].get("function")
-                print(text)
-                if callable(tool_message):
-                    tool_message(text)
-                else:
-                    print("Ошибка: tool_message не является вызываемым объектом")
+                # Сохраняем вызов в историю
+                chat_form.append(message)
+                # Запускаем каждый вызов
+                for tc in message["tool_calls"]:
+                    # Превращаем структуру в удобный для tool_message вид
+                    tool_call_obj = {
+                        "id": tc["id"],
+                        "function": tc["function"]
+                    }
+                    tool_message(tool_call_obj)
+            # 3. Вывод контента
+            elif message.get("content"):
+                content = message["content"].strip()
+                print(f"Assistant: {content}")
+                chat_form.append({"role": "assistant", "content": content})
 
         except Exception as e:
             print(f"Ошибка при обработке нестриминг ответа: {e}")
@@ -229,28 +260,34 @@ def main():
     # Вызываем функцию для запроса списка моделей
     model_api_request()
     # Выводим сообщение об команде окончании работы программы
-    print("""
+    comands = """
             Команды:
+            Справка                         > /h
             Выход                           > /q 
             Удаление сообщения              > /d
             Регенерация сообщения           > /r
             Новый чат                       > /n
             Стриминг переключение           > /s
             Отображение мыслей переключение > /t
-            Вывести текущий контекст        > /p """)
+            Вывести текущий контекст        > /p """
+    print(comands)
     print()
     # Печатаем начальные сообщения чата
     message_print(chat_form)
     # Запускаем бесконечный цикл для обработки запросов пользователя
     while True:
         # Запрашиваем ввод пользователя
-        user_input = input("> ").strip()
+        user_input = input("\n> ").strip()
 
         # Если пользователь ввел 'q', завершаем программу
         if user_input == "/q":
             print("Выход.")
             break
         
+        if user_input == "/h":
+            print(comands)
+            continue
+
         if user_input == "/p":
             message_print(chat_form)
             continue
